@@ -388,9 +388,162 @@ CMake操作分为三类：
 
     $ENV{<name>}
 
+##### 2.3.3 缓存变量
+引用：
 
+    $CACHE{<name>}
+设置：
 
+    set(<variable> <value> CACHE <type> <docstring> [FORCE])
+    <type>通常接受：
+    - BOOL:一个bool开关。
+    - FILEPATH:磁盘上的文件路径。
+    - STRING:一行字符串。
+    - INTERNAL:一行字符串。
+    <doctring> 值只是一个标签，将由GUI显示在字段旁边，以便向用户提供关于该设置的更多详细信息。即使是INTERNAL 类型也需要它。
 
+##### 2.3.4 如何正确使用变量作用域
 
+CMake有两个作用域：
+-  函数作用域：用于执行用function()定义的自定义函数。
+-  目录作用域：当从add_subdirectory()指令执行嵌套目录中的CMakeLists.txt文件时。
+  
+作用域的创建：
+- 定义的块 bolck() 
+- 定义的函数 function() 
+- 执行另外一个文件时会有新的作用域 add_subdirectory() 
+条件块、循环块、宏不会创建独立的作用域
+
+作用域的规则：
+- 创建嵌套作用域时，外层作用域的变量副本被传递给内层作用域，嵌套作用域执行完成后，外层作用域的原始变量被恢复
+- block()块作用域中set变量时可以传播到外层作用域
+- 如果给block()添加PROPAGATE选项，对变量的修改会传播到外层作用域 
+- 如果set添加了PARENT_SCOPE选项，会将该变量视作外层作用域的变量，修改会传播到外层作用域。
+
+#### 2.4 列表
+可以使用set创建列表：
+
+    set(myList"a;list;of;five;elements")
+    set(myList a list"of;five;elements")
+
+#### 2.5 控制结构
+分为三类：
+- 条件块
+- 循环
+- 定义指令
+
+##### 2.5.1 条件块
+
+    if(<condition>)
+        <commands>
+    elseif(<condition>) #optional block,can be repeated
+        <command>
+    else()  #optional block
+        <commands>
+    endif()
+
+##### 2.5.2 条件指令的语法
+
+**逻辑运算符：**
+NOT-condition
+condition-AND-condition
+condition-OR-condition
+
+也可以嵌套。
+
+**字符串和变量的求值：**
+
+**比较：**
+以下操作符支持比较：
+
+    EQUAL、LESS、LESS_EQUAL、GREATER、GREATER_EQUAL
+
+**简单的检查：**
+• 若值在列表中:<variable|string>in _LIST<variable>
+• 若指令可用:command <command-name>
+• 若CMake策略存在:POLICY <policy-id>(这将在第3章中介绍)
+• 若使用add_test()添加CTest 测试:test <test-name>
+• 若定义了构建目标:target <target-name>
+
+**文件系统检查：**
+• EXISTS <path-to-file-or-directory>: 检查文件或目录是否存在这将解析符号链接(若符号链接的目标存在，则返回true)。
+• <file1> IS_NEWER_THAN <file2>: 检查哪个文件更新如果file1 比(或等于)file2 更新，或者两个文件中有一个不存在，则返回true。
+• IS_DIRECTORY path-to-directory: 检查路径是否为目录
+• IS_SYMLINK file-name: 检查路径是否为符号链接
+• IS_ABSOLUTE path: 检查路径是否为绝对路径
     
+##### 2.5.3 循环
+其中包括
+- while循环
+- foreach()循环
 
+**While:**
+
+    while(<condition>)
+        <commands>
+    endwhile()
+
+**foreach:**
+
+    C++风格：
+    foreach(<loop_var> RANGE <max>)
+        <commands>
+    endforeach()
+
+    foreach(<loop_var> RANGE <min> <max> [<step>])
+    提供<min>、<max>、<step>
+
+    foreach(<loop_variable> IN [LISTS <lists>] [ITEMS <items>])
+
+    foreach(<loop_var>...IN ZIP_LISTS <lists>)
+    压缩列表访问
+
+##### 2.5.4 定义指令
+有两种方法定义自己的命令：
+macro()与function()。
+
+- macro()的工作方式类似于替换与查找。
+- function()而是为本地变量创建一个单独的作用域。
+  
+*宏：*
+
+    使用方法：
+    macro(<name> [<argument>...])
+        <commands>
+    endmacro()
+
+*函数：*
+
+    使用方法：
+    function(<name> [<argument>...])
+        <commands>
+    endfunction()
+
+*CMake中的过程范式：*
+
+*关于命名约定：*
+
+#### 2.6 实用指令
+
+##### 2.6.1 message()指令
+message()指令，将文本打印到标准输出。
+也有许多可选模式。
+
+##### 2.6.2 include()指令
+
+使用方法：
+
+    include(<file|module> [OPTIONAL] [RESULT_VARIABLE <var>])
+
+    include("${CMAKE_CURRENT_LIST_DIR}/<filename>.cmake")
+
+##### 2.6.3 include_guard()指令
+用于限制一些包含副作用的文件。
+
+##### 2.6.4 file()指令
+file()指令会以一种与系统无关的方法读取、写入和传输文件。
+
+##### 2.6.5 execute_process()指令
+在 CMake 中，execute_process() 指令用于在 CMake 配置过程中执行外部命令或程序。这在需要在项目配置阶段执行一些额外操作（如生成代码、检查依赖等）时非常有用。
+
+#### 2.7 总结

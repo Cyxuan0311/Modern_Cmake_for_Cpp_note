@@ -1,0 +1,17 @@
+function(Inner)
+    message("> Inner: ${V}")
+    set(v 3)
+    message("< Inner: ${V}")
+endfunction()
+
+function(Outer)
+    message("> Outer: ${V}")
+    set(V 2)
+    Inner()
+    message("< Outer: ${V}")
+endfunction()
+
+set(V 1)
+message("> Global: ${V}")
+Outer()
+message("< Global: ${V}")
