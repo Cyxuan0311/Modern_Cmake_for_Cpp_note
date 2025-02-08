@@ -255,3 +255,142 @@ CMake项目使用外部模块来增强他的功能。模块使用CMake语言编�
 应用程序。然后，以正确的视角为用户和其他开发人员创建项目。此外，还了解了项目的组成部分:
 目录、列表文件、配置、预置和帮助文件，以及在VCS中应该忽略的内容。最后，还了解了其他非
 项目文件:脚本和模块。
+
+### 第二章 CMake语法
+CMake语言将提供一些最有用与最常用的指令。
+本章中：
+- 基本语法
+- 变量
+- 列表
+- 控制结构
+- 实用指令
+  
+#### 2.1 相关准备
+推荐的命令：
+
+    cmake -B <build tree> -S <source tree>
+    cmake --build <build tree>
+
+#### 2.2 基本语法
+编写CMake代码类似于用其他命令式语言编写代码：行从上到下、从左到右执行、偶尔进入包含的文件或调用的函数。
+
+    #以下命令执行脚本
+    cmake -P scripts.cmake
+
+CMake文件中的所有内容不是指令调用就是注释。
+
+##### 2.2.1 注释
+
+可以查看该图片
+
+[如图](image\Cmake的注释问题.png)
+
+##### 2.2.2 执行指令
+命令形式：
+
+    command_name(args...)
+
+- CMake的命令不区分大小写。但是是使用"_"的连接的小写单词。
+- CMake的命令调用不是表达式，所以不能将一个命令作为另一个命令的参数。
+- 命令后不需要加分号。
+
+CMake操作分为三类：
+- 脚本指令
+- 项目指令
+- CTest指令
+  
+##### 2.2.3 指令参数
+在底层，CMake识别的唯一数据结构是字符串。根据上下文的不同，CMake提供了三种类型的参数：
+
+- 方括号参数
+- 引号参数
+- 非引号参数
+  
+**方括号参数：**
+方括号参数不会进行解值，并会将多行字符串作为单个参数逐个转递给命令。
+
+    message([[
+        multiline
+        bracket
+        argument
+    ]])
+
+    message([==[
+        because we used two equal-signs "=="
+        following is still a single argument:
+        { "petsArray" = [["mouse","cat"],["dog"]] }
+    ]==])
+    # [=[开始，]=]结束，"="的数量要相同。
+
+**引号参数：**
+带引号的参数类似于常规的C++字符串————这些参数将多个字符串组合再一起，包括空格，他们将展开转义字符。
+
+    message("1.escape sequence: \" \n in a quoted argument")
+    message("2.multi...
+    line")
+    message("3.and a variable reference: ${CMAKE_VERSION}")
+
+**非引号参数：**
+非引号参数会计算转义字符、引用变量;其中的分号会被作为界定列表界定符，将字符串分割为多个参数。
+
+    message(a\ single\ argument)
+    message(two arguments)
+    message(three;seperated;arguments)
+    message(${CMAKE_VERSION}) # a variable reference
+    message(() () ())   # matching parentheses
+
+- message显示转义单个参数中的空格，才正确打印空格。
+- message()不会添加空格，所以参数会连接在一起。
+  
+#### 2.3 变量
+有三类变量：普通变量、缓存变量、环境变量。
+先从CMake中的关于变量的关键点开始：
+
+- 变量名区分大小写，可以包含任何字符。
+- 变量都在内部作为字符串存储。
+- 基本的变量操作指令是set()和unset()。 
+
+        cmake_minimum_required(VERSION 3.20.0)
+        set(MyString1 "Text1")
+        set([[My String2]] "Text2")
+        set("My String 3" "Text3")
+        message(${MyString1})
+        message(${My\ String2})
+        message(${My\ String\ 3})
+
+要取消变量的设置，可以使用：unset()
+
+##### 2.3.1 引用变量
+考虑以下变量的例子：
+- MyInner的值是Hello
+- MyOuter的值是${My
+  
+使用message("${MyOuter}Inner" World)
+将输出Hello World
+同时使用
+        
+        set(${MyInner} "Hi")
+
+不会改变MyInner变量，而是更改Hello变量。
+
+- ${}用于引用普通变量或缓存变量。
+- $ENY{}用于引用环境变量。
+- $CACHE{}用于引用缓存变量。
+  
+##### 2.3.2 环境变量
+设置：
+
+    set(ENV{CXX} "clang++")
+清除：
+
+    unset(ENV{VERBOSE})
+引用：
+
+    $ENV{<name>}
+
+
+
+
+
+    
+
