@@ -547,3 +547,129 @@ file()指令会以一种与系统无关的方法读取、写入和传输文件�
 在 CMake 中，execute_process() 指令用于在 CMake 配置过程中执行外部命令或程序。这在需要在项目配置阶段执行一些额外操作（如生成代码、检查依赖等）时非常有用。
 
 #### 2.7 总结
+
+### 第三章 CMake项目
+
+#### 3.2 指令和命令
+
+##### 3.2.1 指定最低的CMake版本
+
+cmake_minimum_required()将告诉系统cmake的版本。
+
+##### 3.2.2 定义语言和元数据-project()
+
+使用方法：
+
+    project(<PROJECT-NAME> [<language-name>...])
+    需要指定<PROJECT-NAME>,其他参数可选。
+    language-name有C、CXX(C++)....
+
+#### 3.3 划分项目
+可以不同项目代码中的不同功能划分到不同目录中。
+
+可以使用嵌套结构来进行，即include()和cars_sources变量。
+
+    cmake_minimum_required(VERSION 3.20.0)
+    project(Rental CXX)
+    include(cars/cars.cmake)
+    add_executable(Rental
+        main.cpp
+        ${cars_sources}
+        # ${more variables}
+    )
+
+##### 3.3.1 作用域的子目录
+CMake提供对嵌套目录的指令：
+
+    add_subdiretory(source_dir [binary_dir])
+        [EXCLUDE_FROM_ALL]
+    
+使用如下：
+
+    cmake_minimum_required(VERSION 3.20.0)
+    project(Rental CXX)
+
+    add_executable(Rental main.cpp)
+
+    add_subdirectory(cars)
+
+    target_link_libraries(Rental PRIVATE cars)
+    # 最后一行用于将cars目录中的文件链接到Rental中。
+
+其中，car目录中的CMakeLists文件：
+
+    add_library(cars OBJECT 
+        car.cpp
+    )
+    target_include_directories(cars PUBLIC .)
+add_library()生成了全局可见的目标cars,并使用target_include_directories()将cars目录添加到其公共包括目录中。
+
+##### 3.3.2 嵌套项目
+源码树中有这样的部件，他们有自己的CMakeLists.txt，其中有自己的project()指令。
+可以通过嵌套目录中的列表文件添加project()来实现。
+
+
+##### 3.3.3 外部项目
+
+#### 3.4 项目结构
+一个好的项目：
+- 易导航和扩展
+- 自包含
+- 抽象层次结构应该通过可执行文件和二进制文件来表示。
+  
+如图：
+
+[如图：](image\项目结构.png)
+
+#### 3.5 环境范围
+
+##### 3.5.1 识别操作系统
+我们用一个CMake脚本就可以支持多个目标操作系统，只要检查CMAKE_SYSTEM_NAME变量即可。
+
+    如：
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+
+##### 3.5.2 交叉编译-主机系统和目标系统？
+比如在Window机器中运行CMake来编译Android应用程序。
+主要是将CMAKE_SYSTEM_NAME和CMAKE_SYSTEM_VERSION的变量设置。
+
+##### 3.5.3 简化变量
+CMake将预定义一些变量，这些变量将将提供关于主机和目标信息。
+
+##### 3.5.4 主机系统信息
+使用cmake_host_system_information命令可以查看主机信息。
+
+##### 3.5.5 平台是32位还是64位？
+使用CMAKE_SIZEOF_VOID_P变量获得。
+
+##### 3.5.6 系统的端序
+
+
+#### 3.6 配置工具链
+包括工作环境、生成器、CMake可执行程序、编译器。
+
+##### 3.6.1 设定C++标准
+可以通过设置CMAKE_CXX_STANDARD变量来实现。
+
+##### 3.6.2 坚持支持标准
+
+    set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+##### 3.6.3 特定于供应商的优化。
+
+    set(CMAKE_CXX_EXTERSIONS OFF)
+    这个选项将坚持使用于供应商无关的代码。
+
+##### 3.6.4 过程间优化
+
+    include(CheckIPOSupported)
+    chech_ipo_supported(RESULT ipo_supported)
+    if(ipo_supported)
+        set(CMAKE_INTERPROCEDURAL_OPTIMIZATION True)
+    endif()
+
+##### 3.6.5 检查支持的编译器特性
+
+##### 3.6.6 编译测试文件
+
+#### 3.7 禁用内构建
