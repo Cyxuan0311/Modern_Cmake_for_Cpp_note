@@ -673,3 +673,155 @@ CMake将预定义一些变量，这些变量将将提供关于主机和目标信
 ##### 3.6.6 编译测试文件
 
 #### 3.7 禁用内构建
+
+## 第二部分 进行构建：
+### 第四章 使用目标
+CMake中的目标是为了单一目标的逻辑单元，一个目标可能依赖于其他目标，并且可以以声明的方式产生。CMake负者确定构建目标的顺序，再构建出最终的成品。
+
+#### 4.2 目标的概念
+与GUN make不同的是，在CMake中不需要显示的办法来编译目标文件。
+只需要：
+
+    add_executable(app1 a.cpp b.cpp c.cpp)
+    # 只需要一个add_executable指令。
+
+在CMake中，可以通过以下指令创建目标：
+- add_executable()
+- add_library()
+- add_custom_target()
+
+其中add_library()指令为将指定的源文件编译成库文件，这些库文件可以是静态库（.a 或 .lib）、共享库（.so 或 .dll）或者模块库等。
+
+add_custom_target()是CMake中的一个重要指令，用于定义自定义的构建目标。这个目标不会和常规的编译过程绑定，而是允许用户指定特定的命令在构建过程中执行，常用于执行一些额外的任务，如代码格式化、文档生成、测试脚本运行等。
+
+##### 4.2.1 依赖图
+给一个项目，有两个库、两个可执行文件和一个自定义目标。
+
+如图：
+    [图片](image\Bank.png)
+
+对于以下CMakeLists.txt:
+
+    cmake_minimum_required(VERSION 3.20.0)
+    project(BankApp CXX)
+
+    add_executable(terminal_app terminal_app.cpp)
+    add_executable(gui_app gui_app.cpp)
+
+    target_link_libraries(terminal_app calculations)
+    target_link_libraries(gui_app calculations drawing)
+
+    add_library(calculations calculations.cpp)
+    add_library(drawing drawing.cpp)
+
+    add_custom_target(checksum ALL
+                  COMMAND sh -c "cksum terminal_app>terminal.ck"
+                  COMMAND sh -c "cksum gui_app>gui.ck"
+                  BYPRODUCTS terminal.ck gui.ck 
+                  COMMENT "Checking the sums..."
+    )
+
+    add_dependencies(checksum terminal_app gui_app)
+    使用target_link_libraries()指令将库与可执行文件链接起来。
+    
+##### 4.2.2 可视化的依赖性
+Cmake提供了一个简单的命令来生成一个项目关系图。
+
+    cmake --graphviz=test.dot .
+
+该模块将生成一个文本文件，然后导入到Graphiz软件，还可以生成PDF格式。
+
+##### 4.2.3 目标属性
+目标在某些特征上也和C++对象的工作方式相同。
+比如，可以修改目标属性使其只读。
+
+以下命令：
+
+    get_target_property(<var> <target> <property-name>)
+
+    set_target_property(<target1> <target2> ...
+    PROPERTIES <prop1-name> <value1> <prop2-name> <value>...)
+
+其中，get_target_property()可以查询，set_target_property()可以更改。
+
+    add_dependencies(<target> <dep>)
+    可以用来增加目标的特定的属性。
+
+##### 4.2.4 可传递需求
+有时候一个目标可能依靠另一个目标。我们就可以将原目标与目标目标之间的传播称为可传递需求。
+
+举一个例子：
+
+    target_compile_definitions(<source> <INTERFACE|PUBLIC|PRIVATE> [items1...])
+    该命令将填充<source>目标的COMPILE_DEFINITIONS属性。
+    其中INTERFACE、PUBLIC、PRIVATE将决定将属性传递哪个目标。
+
+详细的原理如下：
+- PRIVATE设置源目标的属性。
+- INTERFACE设置相关目标的属性。
+- PUBLIC设置源和相关目标的属性。
+  
+要在目标间创建依赖关系：
+
+    # 可以使用：
+    target_link_libraries(<target>
+        <PRIVATE|PUBLIC|INTERFACE> <item>...
+        [<PRIVATE|PUBLIC|INTERFACE> <item>...]...
+    )
+
+[图片](image/属性间的传递.png)
+
+##### 4.2.5 处理冲突的传播属性
+给一个例子：
+若在多个目标中使用相同的库构建软件，然后链接单个可执行文件。
+每个目标都有4个这样的列表：
+- COMPATIBLE_INTERFACE_BOOL
+- COMPATIBLE_INTERFACE_STRING
+- COMPATIBLE_INTERFACE_NUMBER_MAX
+- COMPATIBLE_INTERFACE_NUMBER_MIN
+  
+##### 4.2.6 实现伪目标
+
+**导入目标**
+CMake可以定义他们作为find_package()指令的结果。
+
+**别名目标**
+
+    以下指令可为exe与库创建别名目标：
+    add_executable(<name> ALIAS <target>)
+    add_library(<name> ALIAS <target>)
+    别名目标的属性为只读。
+    好处是实际的实现可能根据情况在不同的名称下可用。
+
+**接口库**
+一个不编译任何东西，而是一个实用工具目标。
+两个用途：
+- 纯头文件库
+- 将一堆传播的属性捆绑到一个逻辑单元。
+  
+使用以下指令：
+    
+    add_library(Eigen INTERFACE
+        src/eighn.h src/vector.h src/matrix.h
+    )
+    target_include_directories(Eigen INTERFACE
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+        $<INSTALL_INTERFACE:include/Eigen>
+    )
+    # 创建纯头文件库。
+    target_link_libraries(executable Eigen)
+    # 链接该库。
+
+##### 4.2.7 构建目标
+有些时候我们不需要一些可执行文件或库，我们可以将其排除：
+
+    add_executable(<name> EXCLUDE_FROM_ALL [<source>...])
+    add_library(<name> EXCLUDE_FROM_ALL [<source>...])
+
+#### 4.3 编写自定义命令
+目的：
+- 生成另一个目标所依赖的源代码。
+- 将另一个语言翻译成C++
+- 紧接在构建另一个目标之前或之后执行自定义操作。
+
+##### 4.3.1 使用自定义命令作为生成器

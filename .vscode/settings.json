@@ -4,5 +4,6 @@
         "*.ndjson": "jsonl",
         "*.dbclient-js": "javascript",
         "iostream": "cpp"
-    }
+    },
+    "cmake.sourceDirectory": "F:/C++__StudyStack/Modern_CMake_for_Cpp/PART_TWO/chapter-04/01-targets"
 }
