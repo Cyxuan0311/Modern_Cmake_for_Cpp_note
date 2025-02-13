@@ -1,3 +1,0 @@
-/mnt/f/C++__StudyStack/Modern_CMake_for_Cpp/PART_TWO/chapter-05/03-git/build/CMakeFiles/print_commit.dir
-/mnt/f/C++__StudyStack/Modern_CMake_for_Cpp/PART_TWO/chapter-05/03-git/build/CMakeFiles/edit_cache.dir
-/mnt/f/C++__StudyStack/Modern_CMake_for_Cpp/PART_TWO/chapter-05/03-git/build/CMakeFiles/rebuild_cache.dir

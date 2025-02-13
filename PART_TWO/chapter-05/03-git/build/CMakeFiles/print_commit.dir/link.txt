@@ -1,1 +1,0 @@
-/usr/bin/c++ CMakeFiles/print_commit.dir/print_commit.cpp.o -o print_commit 
