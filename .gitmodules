@@ -1,0 +1,3 @@
+[submodule "PART_TWO/chapter-07/05-git-submodule-manual/extern/yaml-cpp"]
+	path = PART_TWO/chapter-07/05-git-submodule-manual/extern/yaml-cpp
+	url = https://github.com/jbeder/yaml-cpp.git

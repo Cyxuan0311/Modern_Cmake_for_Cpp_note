@@ -1172,3 +1172,145 @@ CMake将把所有头文件的名称放在一个cmake_pch.h|xx文件中，然后�
 
 通过将核心逻辑放在库中，并在测试中链接这个库，可以更容易地进行单元测试和集成测试。
 
+### 第七章 管理依赖关系
+
+#### 7.2 如何查找已安装的软件包
+举一个例子：
+
+    cmake_minimum_required(VERSION 3.20.0)
+    project(FindPackageProtobufVariables CXX)
+
+    find_package(Protobuf REQUIRED)
+    protobuf_generate_cpp(GENERATED_SRC GENERATED_HEADER
+        message.proto)
+
+    add_executable(main main.cpp
+        ${GENERATED_SRC} ${GENERATED_HEADER}
+    )
+    target_link_libraries(main PRIVATE ${Protobuf_LIBRARIES})
+    target_include_directories(main PRIVATE ${Protobuf_INCLUDE_DIRS} ${CMAKE_CURRENT_BINARY_DIR})
+
+让我们来分析一波:
+• 前两行我们已经知道了，创建项目并声明其语言
+• find_package(Protobuf REQUIRED) 要求 CMake 运行绑定的 FindProtobuf.cmake 建立了
+Protobuf 库。该查找模块将扫描常用路径，若没有找到库，则终止(因为提供了REQUIRED关
+键字)。其还将指定有用的变量和函数(例如下一行中的函数)
+ • protobuf_generate_cpp 是 在 protobuf 查找模块中定义的自定义函数。在底层调用
+add_custom_command()，后者使用适当的参数调用协议编译器。可以通过提供两个变量
+来使用这个函数，将生成的源文件(GENERATED_SRC)和头文件(GENERATED_HEADER)
+的路径，以及要编译的文件列表(message.proto)。
+• add_executable，将使用main.cpp和前面指令中配置的Protobuf文件创建可执行文件。
+• target_link_libraries会将find_package()找到的库(静态或动态)添加到主目标的链接指令中。
+• target_include_directories()
+添加包提供的必要的INCLUDE_DIRS和CMAKE_CURRENT_BINARY_DIR。这里需要后者，这样编译器才能找到生成的message.pb.h头文件
+换句话说，实现了一下目标
+- 查找库和编译器的位置
+- 给CMake提供帮助来调用.proto文件的自定义编译器
+- 添加包含和链接所需路径的变量
+
+接下来我们要讲述的是find_package指令：
+
+    find_package(<name> [version] [exact] [quiet] [required])
+    - version为版本
+    - exact为需要精确的版本
+    - quiet用于将消息静默
+    - required用于停止打印消息
+
+#### 7.3 使用FindPkgConfig
+CMake提供一个内置查找模块————FindPkgConfig,可以为用户提供所需的依赖项。
+
+
+    cmake_minimum_required(VERSION 3.20.0)
+    project(FindPkgConfig CXX)
+
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(PQXX REQUIRED IMPORTED_TARGET libqxx)
+    message("PQXX_FOUND: ${PQXX_FOUND}")
+
+    add_executable(main main.cpp)
+    target_link_libraries(main PRIVATE PkgConfig::PQXX)
+
+#### 7.4 编写自己的查找模块
+在极少数情况下，我们要为使用的库编写一个自定义的查找模块。
+
+    如下：
+    cmake_minimum_required(VERSION 3.20.0)
+    project(FindPackageCustom CXX)
+
+    list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/module")
+
+    find_package(PQXX REQUIRED)
+    add_executable(main main.cpp)
+    target_link_libraries(main PRIVATE PQXX::PQXX)
+
+其中，模块会储存在项目树中的cmake/module中。
+
+    模块为：
+    function(add_imported_library library headers)
+    add_library(PQXX::PQXX UNKNOWN IMPORTED)
+    set_target_properties(PQXX::PQXX PROPERTIES
+        IMPORTED_LOCATION ${library}
+        INTERFACE_INCLUDE_DIRECTORIES ${headers}
+    )
+    set(PQXX_FOUND 1 CACHE INTERFACE "PQXX found" FORCE)
+    set(PQXX_LIBRARIES ${libraries}
+        CACHE STRING "Path to pqxx library" FORCE)
+    set(PQXX_INCLUDES ${headers}
+        CACHE STRING "Path to pqxx headers" FORCE
+    )
+
+    mark_as_advanced(FORCE PQXX_LIBRARIES)
+    mark_as_advanced(FORCE PQXX_INCLUDES)
+    endfunction()
+
+#### 7.5 使用Git库
+
+##### 7.5.1 通过Git字模块提供外部库
+我们使用git内置的机制，称为git子模块。
+git子模块允许项目储存库使用其他git储存库，无需将引用的文件添加到项目储存库中。执行以下命令：
+
+    无子模块：
+    git submodule add <repository-url>
+    已有子模块,初始化：
+    git submodule update --init -- <local-path-to-submodule>
+但是用户clone储存库时，不会自动提取子模块，要显示使用init/pull命令。
+
+##### 7.5.2 不使用Git的项目克隆依赖项
+
+    cmake_minimum_required(VERSION 3.20.0)
+    project(GitClone CXX)
+
+    add_executable(welcome main.cpp)
+    configure_file(config.yaml config.yaml COPYONLY)
+
+    find_package(yaml-cpp QUIET)
+    if (NOT yaml-cpp_FOUND)
+        message("yaml-cpp not found, cloning git repository")
+        find_package(Git)
+    if (NOT Git_FOUND)
+        message(FATAL_ERROR "Git not found, can't initialize!")
+    endif ()
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} clone
+        https://github.com/jbeder/yaml-cpp.git
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/extern
+    )
+    add_subdirectory(extern/yaml-cpp)
+    endif()
+    target_link_libraries(welcome PRIVATE yaml-cpp)
+
+CMake代码的主要功能是构建一个名为welcome的可执行程序，并且尝试链接yaml-cpp库。如果系统中没有找到yaml-cpp库，它会通过Git 克隆yaml-cpp的代码仓库，然后将其作为子项目添加到当前项目中进行编译。
+
+#### 7.6 使用ExternalProject和FetchConter模块
+
+在复杂项目的依赖性管理中，ExternalProject和FetchContent模块是CMake提供的重要工具，它们各自有独特的功能和使用场景。这部分内容主要介绍了这两个模块的作用、使用方法、相互间的差异，具体内容如下：
+1. **ExternalProject模块**
+    - **功能及执行步骤**：CMake 3.0.0引入的ExternalProject模块，用于支持在线存储库中外部项目。它能管理外部项目目录结构、下载源代码、支持多种版本控制系统、配置构建项目、执行安装和测试等。在构建阶段，它会为每个外部项目执行创建子目录、下载文件、更新、补丁、配置、构建、安装和测试（可选）等步骤。
+    - **下载步骤选项**：下载依赖项的方式多样，可使用自定义指令，也能通过URL或版本控制系统（如Git、Subversion、Mercurial、CVS ）下载。其中，URL下载可设置校验和、是否提取、是否显示进度等选项；Git下载需指定仓库地址和标签等。
+    - **使用方法及局限性**：使用时，需包含该模块并调用ExternalProject_Add()指令。但该模块存在局限性，其依赖项在构建阶段创建，导致项目命名空间独立，外部项目定义的目标在主项目中不可见，无法直接使用target_link_libraries()链接，解决此问题的方法较为繁琐。
+2. **FetchContent模块**
+    - **与ExternalProject的关系及优势**：FetchContent模块是ExternalProject的高级包装器，从3.11版本开始可用，建议至少使用3.14版本。它在配置阶段填充依赖项，能将外部项目声明的所有目标带入主项目范围，解决了ExternalProject模块中目标不可见的问题，使用更方便。
+    - **使用步骤**：使用FetchContent模块需要三个步骤，首先用include(FetchModule)包含该模块；然后使用FetchContent_Declare()指令配置依赖项，其签名与ExternalProject_Add()相同，但部分选项不允许转发；最后使用FetchContent_MakeAvailable()指令填充依赖项，该指令会下载文件、将目标读取到项目中，并执行相关操作。
+    - **实际示例**：以yaml - cpp库为例，使用FetchContent模块时，只需将ExternalProject_Add替换为FetchContent_Declare，并添加FetchContent_MakeAvailable指令，就可显式访问由yaml - cpp库创建的目标，相比ExternalProject模块更简洁高效。 
+
+
