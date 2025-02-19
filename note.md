@@ -1313,4 +1313,329 @@ CMake代码的主要功能是构建一个名为welcome的可执行程序，并�
     - **使用步骤**：使用FetchContent模块需要三个步骤，首先用include(FetchModule)包含该模块；然后使用FetchContent_Declare()指令配置依赖项，其签名与ExternalProject_Add()相同，但部分选项不允许转发；最后使用FetchContent_MakeAvailable()指令填充依赖项，该指令会下载文件、将目标读取到项目中，并执行相关操作。
     - **实际示例**：以yaml - cpp库为例，使用FetchContent模块时，只需将ExternalProject_Add替换为FetchContent_Declare，并添加FetchContent_MakeAvailable指令，就可显式访问由yaml - cpp库创建的目标，相比ExternalProject模块更简洁高效。 
 
+## 第三部分 自动化：
+### 第八章 测试框架
+#### 8.2 为什么自动化测试值得这么麻烦？
+自动化测试可以提高代码质量，但是也会对不同的代码进行测试代码更改，比较麻烦。
+
+#### 8.3 使用CTest来标准化CMake中的测试
+自动化测试只运行了一个可执行文件，将其测试。
+CMake使用ctest命令行工具解决这个问题。如何在已配置的项目上使用CTest执行测试？有三种模式：
+- 测试
+- 构建和测试
+- 仪表板客户端
+
+我们不考虑第三种模式。
+
+    回到前两种模式：
+    命令行为：
+    ctest [<option>]
+
+##### 8.3.1 构建和测试工具
+使用这种模式，我们要加上--build-and-test
+
+    ctest --build-and-test <path-to-source> <path-to-build>  --build-generator <generator> [<options>...] [--build-options <opts>...] [--test-command <command> [<args>...]]
+    还含有一些参数
+    控制配置阶段。
+    构建构建阶段。
+    控制测试阶段。
+
+##### 8.3.2 测试模式
+大多数情况下,ctest命令总以应对大多数情况。
+不过我们还是可以有一些解决问题的范式
+
+**查询测试**
+
+例如：
+
+    ctest -N
+    可以检查应用将执行那些测试。
+
+**过滤测试**
+
+    -R<r>
+    -E<r>
+    -L<r>
+    -LE<r>
+    CTest可以选择接受不同的文件类型。
+
+**乱序测试**
+
+**处理失败**
+
+**重复测试**
+
+**控制输出**
+
+**其他选项**
+
+
+### 8.4 为CTest创捷最基本的单元测试
+
+#### 8.4.1 为测试构建项目
+主要考虑的是工程中代码文件多了后，编译多次后会产生差异。
+好的办法是将整个解决方案构建成一个库，并连接单元测试。要创建的库是一个对象库。
+
+
+测试的定义：使用特定的输入值执行指定的程序路径并验证结果
+
+
+
+单元测试的根本目的为：
+
+1. 创建想要测试类的实例
+2. 执行其中的某个方法
+3. 检验执行后方法的返回值或实例的状态是否符合预期
+4. 生成测试结果并删除测试的对象
+
+
+
+我们可以不借助任何框架，**针对已有代码，创建一个可执行程序，对这些代码执行测试步骤**。在已有项目中，额外创建一个`test`目录，其中主要有两个部分：
+
+1. 多个**测试用例文件**，文件中可以包含多个函数，每个函数调用项目中的某个单元，测试其功能是否正确，并返回测试结果。为了完成对所有代码的测试，需要将已有代码中`main()`函数的逻辑分离出来，以针对main函数的逻辑编写测试用例进行测试（见8.6）。
+2. **测试****`main`****文件**，引用多个测试用例文件，在`main`函数中根据传入的参数执行特定的测试用例
+3. 编译整个项目后，生成可执行的测试文件，每次运行可执行测试文件并传入指定的参数以执行特定的测试用例，根据输出的结果判断每个测试用例是否执行成功
+
+
+
+可以使用CMake自动执行以上过程并判断执行结果，甚至生成所有测试用例的执行报告
+
+在`test`目录中创建`CMakeLists.txt`，以构建测试可执行文件和生成测试用例，构建的内容包括：
+
+1. `include(CTest)`以使用`CTest`提供的各种功能，完成测试
+   - 在生成阶段，如果`include(CTest)`命令的列表文件在目录`./test`中，会在构建树`<build_tree>`目录下的`test`下生成`CTestTestfile.cmake`文件
+   - 构建完成后，执行`ctest`命令时，需要指定`CTestTestfile.cmake`文件的路径，并根据文件内容执行测试
+2. 利用**测试****`main`****文件**和**多个测试用例构成的文件**，创建测试可执行文件目标
+3. 使用`add_test()`指令，将测试用例的相关信息（包含测试用例名称、利用可执行文件执行测试用例的方式等）注册到CTest
+
+```cmake
+# calc_test.cpp 中定义了多个测试 calc.cpp 中功能的测试用例
+# unit_tests.cpp 的 main 函数根据传入的参数，执行 calc_test.cpp 中定义的特定测试用例
+add_executable(unit_tests unit_tests.cpp calc_test.cpp ../src/calc.cpp)
+target_include_directories(unit_tests PRIVATE ../src)
+
+# 向 CTest 注册多个测试用例，并指定执行每个测试用例时要执行的命令
+add_test(NAME SumAddsTwoInts COMMAND unit_tests 1)
+add_test(NAME MultiplyMultipliesTwoInts COMMAND unit_tests 2)
+
+```
+
+
+
+对`test`目录构建完成后，执行`ctest [--test-dir path_to_ctesttestfile]`按照`CTestTestfile.cmake`文件进行测试：
+
+1. CTest会依次执行注册的每个测试用例对应的`CMMAND`
+2. 收集每个测试用例执行时的输出和退出代码
+3. 针对所有的测试用例的执行结果，生成测试报告并输出
+
+
+
+如果没有给`ctest`命令指定`CTestTestfile.cmake`文件所在的路径，默认会到执行命令所在的目录中查找该文件。通常，应该在根CMakeLists.txt中执行`include(CTest)`，以保证`CTestTestfile.cmake`文件直接在`<build_tree>`中生成，这样就可以直接在`<build_tree>`中执行`ctest`命令了
+
+
+
+`ctest`命令有多种使用方式
+
+
+可以在使用`cmake`构建项目后，在构建目录中使用`ctest`命令自动运行生成的测试可执行文件
+
+`ctest`命令提供了[多个选项](https://cmake.org/cmake/help/latest/manual/ctest.1.html#run-tests "多个选项")以指定测试过程中的各种行为：
+
+1. `-N`，仅列出所有注册的测试用例，不执行测试
+2. 过滤测试：只运行指定的测试用例，使用`-R`、`-E`、`-L`、`-LE`等
+3. 打乱测试：随机化执行测试用例，使用`--schedule-random`
+
+
+使用`ctest`的`--build-and-test`选项，可以指定先执行构建，构建完成后立即执行每个测试用例，实现一个命令同时完成构建和测试用例的执行
+
+
+
+该命令可以同时传入`cmake`构建的参数和`ctest`测试的参数，命令形式为：
+
+```bash
+ctest --build-and-test <source_dir> <build_dir>  # 指定构建的源文件夹和目标文件夹
+      --build-generator <generator> <options>    # 指定生成器
+      [--build-options <options>]                # cmake 构建所需要的参数
+      [--test-command <command> [<args>]]        # ctest 测试所需要的参数
+```
+
+- 其中的源文件夹、目的文件夹、生成器都不可省略
+- 如果想要构建完成后立即运行测试用例，需要在`--test-command`命令后添加`test`，即指定：
+  ```bash
+  ctest xxxx --test-command test
+  ```
+
+
+
+单元框架中定义的测试用例会自动注册到CTest，当运行`ctest`时会自动执行，并生成测试报告
+
+
+
+参考连接：[Catch2 Github主页](https://github.com/catchorg/Catch2 "Catch2 Github主页")，[Catch2与CMake的集成](https://github.com/catchorg/Catch2/blob/devel/docs/cmake-integration.md "Catch2与CMake的集成")
+
+如果本地没有安装过Catch2，可以在`test`目录中创建的`CMakeLists.txt`文件中包含如下内容以使用Catch2：
+
+```cmake
+# 1. 从网络下载 Catch2 模块
+include(FetchContent)
+FetchContent_Declare(
+  Catch2
+  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+  GIT_TAG        v3.4.0
+)
+FetchContent_MakeAvailable(Catch2)
+
+# 引入 CTest 模块
+include(CTest)
+
+# 2. 将 Catch2 的路径加入 CMake 的模块搜索路径，以引入 Catch
+list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
+include(Catch)
+
+# 3. 将使用 Catch2 创建的测试用例 cpp 文件编译为可执行文件，
+#    并链接 Catch2::Catch2WithMain 库
+add_executable(tests calc_test.cpp run_test.cpp)
+target_link_libraries(tests PRIVATE sut Catch2::Catch2WithMain)
+
+# 4. 调用 catch_discover_tests 函数，
+#    用于从目标中获取使用 TEST_CASE 创建的测试用例信息，并注册到 CTest
+catch_discover_tests(tests)
+
+```
+
+- 使用`FetchContent`获取的Catch2需要将`${catch2_SOURCE_DIR}/extras`目录追加到`CMAKE_MODULE_PATH`才能正确使用`include`导入
+- 可以使用`Catche2`创建的测试文件需要包含头文件`#include <catch2/catch_test_macros.hpp>`，并使用`TEST_CASE`宏定义相关的测试用例
+  ```c++
+  #include <catch2/catch_test_macros.hpp>
+  #include <cstdint>
+  uint32_t factorial( uint32_t number ) {
+      return number <= 1 ? number : factorial(number-1) * number;
+  }
+
+  TEST_CASE( "Factorials are computed", "[factorial]" ) {
+      REQUIRE( factorial( 1) == 1 );
+      REQUIRE( factorial( 2) == 2 );
+      REQUIRE( factorial( 3) == 6 );
+      REQUIRE( factorial(10) == 3'628'800 );
+  }
+  ```
+- Catch2库的CMake的构建会导出两个target，`Catch2::Catch2`（链接这个时可以包含自定义`main`函数的测试文件）和 `Catch2::Catch2WithMain`（链接这个时，测试文件著需要包含测试用例即可）
+
+
+
+GoogleTest中定义：
+
+- **断言**：检查给定判断是否为真的语句
+
+  断言是类似于函数调用的宏，每种判断都分两种函数：
+  - `ASSERT_*`：该形式在判断为失败时直接终止程序
+  - `EXPECT_*`：该形式在判断为失败时只记录一个错误信息，且会继续运行后续语句
+  如果断言判断为假，会输出断言失败时所在的行号和失败信息，可以在断言后使用`<<`运算符显式指定失败信息：
+  ```c++
+  ASSERT_EQ(x.size(), y.size()) << "Vectors " << x.size() << " != " << y.size();
+  ```
+- **测试**：使用断言语句验证测试代码
+
+  使用`TEST()`宏定义一个测试，包含两个参数，且名字都不能包含任何下划线：
+  - 第一个参数指定该测试所属的测试套件名字
+  - 第二个参数指定该测试的名字
+  ```c++
+  #include <gtest/gtest.h>
+  TEST(TestSuiteName, TestName) {
+    // ... test body ...
+  }
+  ```
+- **测试套件**（测试用例）：多个测试的集合
+
+  多个**逻辑相关**的测试应该划分到相同的**测试套件**中
+- 可以将多个测试放到一个**测试夹具**（Test Fixtures）中，以在不同测试中**重用对象的相同配置**。创建测试夹具的方法为：
+  - 继承`testing::Test`定义测试夹具类，在`protected`中定义构造函数、析构函数等所有成员（会基于当前的定义，创建额外的子类以进行测试）
+  - 可以重写`void SetUp() override`和`void TearDown() override`函数，以在每个测试开始前和结束后执行特定的资源创建和释放操作
+  - 需要使用`TEST_F()`创建使用测试夹具的测试，其中两个参数：
+    1. 第一个参数必须是测试夹具的类名
+    2. 第二个参数是测试的名字
+  - 每个测试夹具的测试开始前，都会创建一个新的测试夹具类对象，并在测试结束后销毁
+  ```c++
+  #include <gtest/gtest.h>
+  class TestFixtureClassName : public testing::Test {
+   protected:
+     // class body
+  }
+
+  TEST_F(TestFixtureClassName, TestName) {
+    // ... test body ...
+  }
+
+  ```
+- **测试程序**：多个测试套件的组合
+
+
+
+直接运行所有的测试有两种方法：
+
+1. 为测试单独定义包含`main()`函数的测试可执行文件，`main()`函数中至少包含如下两句，还可以包含一些自定义的测试过程
+   ```c
+   int main(int argc, char **argv) {
+     // 将程序的参数传入 GoogleTest 以初始化相关内容
+     testing::InitGoogleTest(&argc, argv);
+     // 用于将测试套件和测试服务关联起来的宏，必须返回该值，且只能调用一次
+     return RUN_ALL_TESTS();
+   }
+   ```
+2. 如果不需要自定义`main`函数，可以在编译整个测试程序时，链接`gtest_main`静态库，该静态库中定义定义了必要的`main`函数
+   ```bash
+   g++ test.cpp -lgtest_main -lgtest
+   ```
+
+
+
+
+
+为了[将GoogleTest和CTest进行集成](https://google.github.io/googletest/quickstart-cmake.html "将GoogleTest和CTest进行集成")，可以在`test`目录的`CMakeLists.txt`文件中包含如下内容以使用GoogleTest：
+
+```cmake
+# 1. 从网上指定位置下载 GoogleTest
+include(FetchContent)
+FetchContent_Declare(
+  googletest
+  GIT_REPOSITORY https://github.com/google/googletest.git
+  GIT_TAG v1.14.0
+)
+# For Windows: Prevent overriding the parent project's compiler/linker settings
+# 用于在 Windows 上避免覆盖父项目的编译器和链接器设置
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
+
+# 2. 指定 CMake 构建时，需要向 CTest 注册测试套件相关的信息，以开启测试
+enable_testing()
+
+# 3. 编译包含测试套件的可执行文件，并链接 gtest_main 库以使用默认的 main 函数
+add_executable(test test.cpp)
+target_link_libraries(hello_test GTest::gtest_main)
+
+# 4. 调用该函数将测试用例注册到 CTest，之后 CTest 就能获取完整的测试信息
+include(GoogleTest)
+gtest_discover_tests(test)
+
+```
+
+- `enable_testing()`会[开启CTest的支持](https://stackoverflow.com/questions/50468620/what-does-enable-testing-do-in-cmake "开启CTest的支持")，调用`include(CTest)`时会自动执行`enable_testing()`，但是`include(CTest)`还会导入CDash 相关的组件导致[冗余](https://discourse.cmake.org/t/is-there-any-reason-to-prefer-include-ctest-or-enable-testing-over-the-other/1905/2 "冗余")，因此应该优先使用`enable_testing()`
+
+
+
+GoogleTest还提供了[gMock](https://google.github.io/googletest/gmock_for_dummies.html "gMock")以模拟测试中所需要的类对象等相关的依赖，以避免在测试时需要将程序所依赖的所有内容都包含进来。
+
+
+### 8.6 生成测试覆盖报告
+
+参考链接：
+
+- [【C++】单元测试覆盖率工具lcov的使用](https://blog.csdn.net/muxuen/article/details/141617525 "【C++】单元测试覆盖率工具lcov的使用")
+
+
+
+为了保证测试用例的有效性，可以通过工具跟踪测试用例的执行，在测试期间收集每行代码的执行信息，并生成报告：
+
+- `gcov`：编译器GCC中的一个覆盖率收集工具，可以在执行`g++`命令时指定使用该工具收集代码执行信息
+- `LCOV`：`gcov`的图形前端，根据`gcov`生成的报告，以HTML的格式展示执行的结果
 
