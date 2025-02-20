@@ -1370,9 +1370,9 @@ CMake使用ctest命令行工具解决这个问题。如何在已配置的项目�
 **其他选项**
 
 
-### 8.4 为CTest创捷最基本的单元测试
+#### 8.4 为CTest创捷最基本的单元测试
 
-#### 8.4.1 为测试构建项目
+##### 8.4.1 为测试构建项目
 主要考虑的是工程中代码文件多了后，编译多次后会产生差异。
 好的办法是将整个解决方案构建成一个库，并连接单元测试。要创建的库是一个对象库。
 
@@ -1626,7 +1626,7 @@ gtest_discover_tests(test)
 GoogleTest还提供了[gMock](https://google.github.io/googletest/gmock_for_dummies.html "gMock")以模拟测试中所需要的类对象等相关的依赖，以避免在测试时需要将程序所依赖的所有内容都包含进来。
 
 
-### 8.6 生成测试覆盖报告
+#### 8.6 生成测试覆盖报告
 
 参考链接：
 
@@ -1638,4 +1638,50 @@ GoogleTest还提供了[gMock](https://google.github.io/googletest/gmock_for_dumm
 
 - `gcov`：编译器GCC中的一个覆盖率收集工具，可以在执行`g++`命令时指定使用该工具收集代码执行信息
 - `LCOV`：`gcov`的图形前端，根据`gcov`生成的报告，以HTML的格式展示执行的结果
+
+### 第九章 分析工具
+
+本章中，我们将讨论以下主题：
+- 格式化
+- 静态检查
+- Valgrind
+
+#### 9.2 格式化
+
+编辑代码时，我们是使用制表符还是tab
+
+    如下命令可以使用clang-format工具来进行格式化检查：
+    clang-format -i --style=LLVM filename1.cpp filename2.cpp
+
+使用clang-format工具可以帮助我们。
+
+#### 9.3 静态检查
+
+静态程序分析是在不运行编译版本的情况下检查源代码的过程。
+C++社区中提供了许多静态检查器。
+有：
+- Clang-Tidy
+- Cpplint
+- Cppcheck
+- include-what-you-are
+- link-what-you-use
+
+#### 9.4 Valgrind的动态分析
+Valgrind是一个工具框架，包括：
+- Memcheck
+- Cachegrind
+- Callgrind-Cachegrind
+- Massif
+- Helgrind
+- DRD
+
+##### 9.4.1 Memcheck
+用于检测内存错误，包括：
+- 未初始化的内存使用
+- 内存泄漏
+- 内存越界
+
+##### 9.4.2 Memcheck-Cover
+
+通过使用第三方报告生成器，如lcov，可以生成代码覆盖率报告。
 
