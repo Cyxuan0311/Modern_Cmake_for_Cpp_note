@@ -1685,3 +1685,190 @@ Valgrind是一个工具框架，包括：
 
 通过使用第三方报告生成器，如lcov，可以生成代码覆盖率报告。
 
+### 第十章 生成文档
+为了简化工作，我们可以使用自动文档生成器，他可以分析源文件的代码与注释，可以以不同的格式生成全面的文档。
+
+#### 10.2 添加Doxygen
+Doxygen生成许多格式的文档，可以生成有用的图表。
+
+通过以下命令：
+
+    doxygen_add_docs(
+        doc
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        COMMENT "Generate documentation"
+    )
+可以构建文档。
+
+#### 10.3 生成好看的文档
+生成文档的过程中，我们可以使用干净、新颖的设计编写项目文档。
+
+
+### 第十一章 安装和打包
+本章主要讨论最后的两个步骤：
+- 安装
+- 打包
+
+使用CPack来生成归档文件、安装程序、打包文件和不同操作系统中所有包管理器都能识别的包。
+
+本章主要内容：
+- 只导出，不安装
+- 在系统上安装
+- 创建可重用的包
+- 定义组件
+- 使用CPack打包
+
+
+#### 11.2 只导出，不安装
+
+如何使项目A的目标对项目B可用？通常使用find_package()指令，该指令会在系统上查找指定的包。
+不过我们也可以使用include()指令，将项目A的目标导出到项目B中。这样将为A的所有项目提供定义。
+接下来介绍的是：
+export()命令，详细用法：
+
+    export(TARGETS [target1 [target2 ...]] [FILE [filename]] [NAMESPACE namespace]  [APPEND])
+
+    还用一个简单的版本：
+    export(EXPORT <export> [NAMESPACE <namespace>] [FILE <path>])
+
+#### 11.3 在系统上安装
+CMake提供了一个install()命令，用于将项目安装到系统上。
+
+    cmake --install <dir> [<options>]
+
+    其中dir为构建目录，options为安装选项。
+    options包括有：
+    - DESTINATION <dir>：指定安装目录
+    - COMPONENT <component>：指定组件
+    - EXCLUDE_FROM_ALL：不构建安装目标
+    - EXPORT <export>：导出目标
+    - CONFIGURATIONS <config>：指定配置
+    - PERMISSIONS <permissions>：指定权限
+    - DIRECTORY_PERMISSIONS <permissions>：指定目录权限
+
+##### 11.3.1 安装逻辑目标
+由add_library()和add_executable()创建的逻辑目标，在安装时会被安装到指定的目录中。
+
+    使用方式：
+    install(TARGETS <target> [EXPORT <export>] [DESTINATION <dir>] [COMPONENT <component>] [CONFIGURATIONS <config>] [PERMISSIONS <permissions>])
+
+    其中target为目标，export为导出目标，dir为安装目录，component为组件，config为配置，permissions为权限。
+
+    也可以省略类型名，并为所有构件指定选项
+    install(TARGETS executable,static_libl
+        DESTINATION /tmp
+    )
+
+**为不同的平台找到目标**
+目标路径公式如下：
+
+    ${CMAKE_INSTALL_PREFIX}+{DESTINATION}
+
+**处理公共头文件**
+
+
+##### 11.3.2 底层安装
+现代CMake在理想情况下，可以用更高级的方式来表示所有底层资源。
+
+**使用install(FILES|PROGRAMS)安装文件集**
+
+**使用整个目录**
+
+
+##### 11.3.3 安装期间使用脚本
+CMake提供install(SCRIPT|CODE)指令，用于在安装期间运行脚本。以下是完整的指令用法：
+    install(SCRIPT <file> [DESTINATION <dir>] [COMPONENT <component>] [CONFIGURATIONS <config>] [PERMISSIONS <permissions>])
+
+#### 11.4 创建可重用的包
+
+##### 11.4.1 理解可重定位目标
+CMake提供了两个生成器表达式解决这个问题：
+
+    $<BUILD_INTERFACE>:这包括常规构建的内容
+    $<INSTALL_INTERFACE>：这包括安装的内容
+
+##### 11.4.2 安装目标导出文件
+用于安装的目标导出文件：
+
+    install(EXPORT <export> [DESTINATION <dir>] [COMPONENT <component>] [CONFIGURATIONS <config>] [PERMISSIONS <permissions>] [FILE <filename>] [NAMESPACE <namespace>] [EXCLUDE_FROM_ALL])
+
+##### 11.4.3 编写配置文件
+从技术上讲，find_package()指令会在系统上查找指定的包。所需要的只是一个配置文件。
+
+    cmake --install <build tree> --prefix=<installation path>
+
+要使用安装在非默认位置的包，项目需要在配置阶段指定安装路径。
+使用方式：
+
+    cmake --install <build_tree> --prefix=<installation_path>
+
+    或者：
+
+    cmake -DCMAKE_INSTALL_PREFIX=<installation_path> <source tree>
+
+
+##### 11.4.4 创建高级配置文件
+CMake中的CMakePackageConfigHelpers模块提供了一个函数，用于创建高级配置文件。
+可以使用configure_package_config_file()函数来创建高级配置文件。
+生成包含两个嵌入宏定义的配置文件：
+- set_and_check()
+- check_required_components()
+
+##### 11.4.5 生成包版本文件
+find_package()其中可以指定版本号。
+CMake提供了一个函数，用于生成包版本文件。
+可以使用write_basic_package_version_file()函数来生成包版本文件。
+使用方式：
+
+    write_basic_package_version_file(<file> [VERSION <version>] [COMPATIBILITY <compatibility>])
+
+    其中file为文件名，version为版本号，compatibility为兼容性。
+
+#### 11.5 定义组件
+
+##### 11.5.1 在find_package()中使用组件
+在find_package()指令中，可以使用COMPONENTS选项来指定组件。
+使用方式：
+
+    find_package(<package> [COMPONENTS <component>...])
+    其中package为包名，component为组件。
+
+##### 11.5.2 在install()指令中使用组件
+有些生成的工件可能不需要为所有的场景安装。
+可以使用COMPONENT选项来指定组件。
+使用方式：
+
+    cmake --install <build tree> --component <component>
+
+管理版本动态库的符号链接
+安装的目标平台可能使用符号链接来管理版本动态库。
+可以通过添加NAMELINK_SKIP来决定将这个步骤移动到CMake的安装阶段。
+使用方式：
+
+    install(TARGETS <target> LIBRARY COMPONENT <component> NAMELINK_SKIP)
+
+#### 11.6 使用CPack打包
+CMake支持多种打包格式。包括：
+- DEB
+- RPM
+- TGZ
+- ZIP
+- NSIS
+等等
+构建项目之后，构建树中使用cpack命令来生成包。
+
+    cpack [<options>]
+    其中的选项有：
+    -G <generator>：指定生成器
+    -C <config>：指定配置
+    -B <directory>：指定构建目录
+    -D <variable>=<value>：指定变量
+    -V：显示版本信息
+    -C：显示配置信息
+    -H：显示帮助信息
+
+这种格式的二进制包可以发布在github上。
+
+
+
